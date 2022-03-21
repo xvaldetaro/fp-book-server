@@ -14,6 +14,7 @@ You can edit this file as you like.
   , "foreign-generic"
   , "httpure"
   , "maybe"
+  , "node-fs-aff"
   , "node-process"
   , "nonempty"
   , "posix-types"
