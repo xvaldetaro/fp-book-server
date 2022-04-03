@@ -26,12 +26,10 @@ instance apiHandlerLogon :: ApiHandler Logon where
 handler :: LogonRequest -> Handler
 handler (LogonRequest {userName, password}) = do
   HandlerEnv { accountsAvar } <- ask
-  lift do
-    accountMaybe <- verifyLogon accountsAvar userName password
-    case accountMaybe of
-      Nothing -> HTTPure.ok $ encodeJSON $ LogonResponse LogonResultsFailure
-      Just (Account acc) -> HTTPure.ok $ encodeJSON
-        $ LogonResponse
+  accountMaybe <- lift $ verifyLogon accountsAvar userName password
+  HTTPure.ok $ encodeJSON $ case accountMaybe of
+      Nothing -> LogonResponse LogonResultsFailure
+      Just (Account acc) -> LogonResponse
         $ LogonResultsSuccess {authToken: emptyUUID, mustChangePassword: acc.temporaryPassword}
 
 

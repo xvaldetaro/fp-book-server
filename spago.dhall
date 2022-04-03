@@ -19,6 +19,7 @@ You can edit this file as you like.
   , "foreign"
   , "foreign-generic"
   , "httpure"
+  , "js-date"
   , "lcg"
   , "maybe"
   , "node-buffer"
