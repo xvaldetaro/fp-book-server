@@ -7,7 +7,7 @@ import Data.Show.Generic (genericShow)
 import Foreign.Generic (class Decode, class Encode, defaultOptions, genericDecode, genericEncode)
 import Data.UUID (UUID)
 
-newtype LogoffRequest = LogoffRequest UUID
+newtype LogoffRequest = LogoffRequest { authToken :: UUID }
 derive instance genericLogoffRequest :: Generic LogoffRequest _
 instance encodeLogoffRequest :: Encode LogoffRequest where
   encode = genericEncode defaultOptions

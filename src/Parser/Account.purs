@@ -4,28 +4,34 @@ import Prelude
 
 import Control.Alt ((<|>))
 import Data.Api.Account (Account(..))
+import Data.Array (catMaybes, fromFoldable)
 import Data.Array.NonEmpty (some, toArray)
-import Data.Either (Either(..))
+import Data.Either (Either)
 import Data.Maybe (Maybe(..))
 import Data.String.CodeUnits (fromCharArray, singleton)
-import Debug (spy)
-import Text.Parsing.Parser (ParseError(..), Parser, fail, runParser)
+import Text.Parsing.Parser (ParseError, Parser, fail, runParser)
+import Text.Parsing.Parser.Combinators (sepBy)
 import Text.Parsing.Parser.String (char, string)
 import Text.Parsing.Parser.Token (alphaNum)
 
-parseAccount :: String -> Either ParseError Account
-parseAccount s = runParser s accParser
+parseAccounts :: String -> Either ParseError (Array Account)
+parseAccounts s = runParser s accountsParser
+
+accountsParser :: Parser String (Array Account)
+accountsParser = sepBy go (char '\n') <#> fromFoldable >>> catMaybes
+  where
+    go = (accParser <#> Just) <|> pure Nothing
 
 accParser :: Parser String Account
 accParser = do
-  userName <- userName
+  userName' <- userName
   passwordHash <- eatComma word
   temporaryPassword <- eatComma bool
   admin <- eatComma bool
   firstName <- eatComma word
   lastName <- eatComma word
   pure $ Account
-    { userName
+    { userName: userName'
     , passwordHash
     , temporaryPassword
     , admin

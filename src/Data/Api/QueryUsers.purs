@@ -8,7 +8,7 @@ import Data.UUID (UUID)
 import Foreign.Generic (class Decode, class Encode, defaultOptions, genericDecode, genericEncode)
 
 newtype QueryUsersRequest
-  = QueryUsersRequest UUID
+  = QueryUsersRequest { authToken :: UUID }
 
 data QueryUsersResults
   = QueryUsersResultsFailure

@@ -5,21 +5,21 @@ import Prelude
 import Data.Api.Session (Session(..))
 import Data.JSDate (getTime, now)
 import Data.Map (Map, filter, insert, lookup)
+import Data.Map as Map
 import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(..))
-import Data.UUID (UUID, genUUID, parseUUID)
+import Data.UUID (UUID, genUUID)
 import Effect.AVar (AVar)
 import Effect.Aff (Aff)
 import Effect.Aff.AVar (put, take)
 import Effect.Aff.AVar as AVar
-import Effect.Aff.AVar as Avar
 import Effect.Class (liftEffect)
-import Undefined (undefined)
+import Utils as Utils
 
 type Sessions = Map UUID Session
 
 startup :: Aff (AVar Sessions)
-startup = AVar.empty
+startup = AVar.new Map.empty
 
 shutdown :: AVar Sessions -> Aff Unit
 shutdown avar = void $ take avar
@@ -33,19 +33,22 @@ expireSessions avar = do
 sessionTimeout :: Number
 sessionTimeout = 4.0 * 60.0 * 60.0 * 1000.0
 
-verifySession :: AVar Sessions -> String -> Aff (Maybe Session)
-verifySession avar authTokenStr = do
+verifySession :: AVar Sessions -> UUID -> Aff (Maybe Session)
+verifySession avar authToken = do
   expireSessions avar
-  sessions <- take avar
   nowTimestamp <- liftEffect $ now <#> getTime
-  let sessionMaybe = parseUUID authTokenStr >>= flip lookup sessions <#> updateLastTime nowTimestamp
-  let Tuple newSessions newSession =
-        case sessionMaybe of
-          Nothing -> Tuple sessions Nothing
-          Just session@(Session { authToken }) -> do
-            Tuple (insert authToken session sessions) (Just session)
-  put newSessions avar
-  pure newSession
+  Utils.withAVar avar
+    \sessions ->
+      let sessionMaybe = lookup authToken sessions <#> updateLastTime nowTimestamp in
+      pure case sessionMaybe of
+        Nothing -> Tuple sessions Nothing
+        Just session -> do
+          Tuple (insert authToken session sessions) (Just session)
+
+deleteSession :: AVar Sessions -> UUID -> Aff Unit
+deleteSession avar authToken = do
+  sessions <- AVar.take avar
+  AVar.put (Map.delete authToken sessions) avar
 
 updateLastTime :: Number -> Session -> Session
 updateLastTime newTimestamp (Session session) = Session $ session { lastTime = newTimestamp }

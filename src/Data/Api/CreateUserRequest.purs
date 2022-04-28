@@ -27,6 +27,7 @@ data CreateUserResultsFailureReason
   = AlreadyExists
   | NotAuthenticated
   | NotAuthorized
+  | FileIOError String
 
 derive instance genericCreateUserRequest :: Generic CreateUserRequest _
 

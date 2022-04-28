@@ -1,27 +1,22 @@
 module Manager.Account where
 
 import Prelude
+
+import Api.User (User(..))
+import Crypto (passwordHashHex)
 import Data.Api.Account (Account(..))
-import Data.Array (foldr)
-import Data.Char (toCharCode)
-import Data.Map (Map, fromFoldable, lookup, member, values)
-import Data.Maybe (Maybe(..), fromMaybe)
-import Data.String.CodeUnits (fromCharArray, toCharArray)
+import Data.Array as Array
+import Data.Either (Either(..))
+import Data.Map (Map, fromFoldable, lookup)
+import Data.Map as Map
+import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(..))
-import Effect (Effect)
 import Effect.Aff (Aff)
-import Effect.Aff.AVar (AVar, put, take)
+import Effect.Aff.AVar (AVar, take)
 import Effect.Aff.AVar as AVar
-import Effect.Class (liftEffect)
-import Node.Buffer (Buffer)
-import Node.Buffer as Buffer
-import Node.Crypto.Hash (Algorithm(..), createHash, digest, update)
-import Node.Crypto.Hash as Algorithm
-import Node.Encoding (Encoding(..))
-import Random.LCG (Seed, mkSeed)
-import Test.QuickCheck.Arbitrary (arbitrary)
-import Test.QuickCheck.Gen (sample)
-import Undefined (undefined)
+import Record as Record
+import Type.Proxy (Proxy(..))
+import Utils as Utils
 
 type Accounts
   = Map String Account
@@ -38,28 +33,31 @@ shutdown avar = void $ take avar
 
 verifyLogon :: AVar Accounts -> String -> String -> Aff (Maybe Account)
 verifyLogon avar userName password = do
-  account <- take avar <#> lookup userName
-  passwordHash' <- makeHash password userName
+  accounts <- take avar
+  AVar.put accounts avar
+  let account = lookup userName accounts
+  passwordHash' <- passwordHashHex password userName
   pure $ account
     >>= ( \acc@(Account { passwordHash }) ->
           if (passwordHash' == passwordHash) then Just acc else Nothing
       )
 
-makeHash :: String -> String -> Aff String
-makeHash str saltOrigin =
-  liftEffect do
-    let
-      salted = str <> salt 5 saltOrigin
-    buf <- Buffer.fromString salted ASCII
-    emptyHash <- createHash SHA256
-    hash <- update emptyHash buf
-    hashBuf <- digest hash
-    Buffer.toString Hex hashBuf
 
-salt :: Int -> String -> String
-salt length str = sample (seedFromString str) length arbitrary # fromCharArray
+getAccounts :: AVar Accounts -> Aff (Array Account)
+getAccounts avar = AVar.read avar <#> (Map.values >>> Array.fromFoldable)
 
-seedFromString :: String -> Seed
-seedFromString str = str # toCharArray <#> toCharCode # sumArray # mkSeed
-  where
-  sumArray = foldr (*) 0
+findAccount :: AVar Accounts -> String -> Aff (Maybe Account)
+findAccount avar userName = do
+  accounts <- AVar.read avar
+  pure $ Map.lookup userName accounts
+
+data CreateAccountError = CreateAccountAlreadyExists
+
+createAccount :: AVar Accounts -> Account -> Aff (Either CreateAccountError Unit)
+createAccount avar acc@(Account {userName}) =
+  Utils.withAVar avar
+    \accounts -> pure $
+      if Map.member userName accounts then
+        Tuple accounts (Left CreateAccountAlreadyExists)
+      else
+        Tuple (Map.insert userName acc accounts) (Right unit)
